@@ -18,6 +18,7 @@ func (mr *Master) Shutdown(_, _ *struct{}) error {
 
 // startRPCServer starts the Master's RPC server. It continues accepting RPC
 // calls (Register in particular) for as long as the worker is alive.
+// 启动一个master的RPC server，等待woker注册register
 func (mr *Master) startRPCServer() {
 	rpcs := rpc.NewServer()
 	rpcs.Register(mr)

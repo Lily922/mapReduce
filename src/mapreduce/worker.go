@@ -28,6 +28,8 @@ type Worker struct {
 
 // DoTask is called by the master when a new task is being scheduled on this
 // worker.
+// 被master节点调用的函数
+// 用于向worker分配任务
 func (wk *Worker) DoTask(arg *DoTaskArgs, _ *struct{}) error {
 	fmt.Printf("%s: given %v task #%d on file %s (nios: %d)\n",
 		wk.name, arg.Phase, arg.TaskNumber, arg.File, arg.NumOtherPhase)
@@ -71,9 +73,11 @@ func (wk *Worker) Shutdown(_ *struct{}, res *ShutdownReply) error {
 }
 
 // Tell the master we exist and ready to work
+// 向master注册当前worker可以工作
 func (wk *Worker) register(master string) {
 	args := new(RegisterArgs)
 	args.Worker = wk.name
+	//通过RPC与master节点通信
 	ok := call(master, "Master.Register", args, new(struct{}))
 	if ok == false {
 		fmt.Printf("Register: RPC %s register error\n", master)
@@ -82,6 +86,7 @@ func (wk *Worker) register(master string) {
 
 // RunWorker sets up a connection with the master, registers its address, and
 // waits for tasks to be scheduled.
+// 运行worker，建立与master的RPC连接，注册自己的address并且等待任务调度
 func RunWorker(MasterAddress string, me string,
 	MapFunc func(string, string) []KeyValue,
 	ReduceFunc func(string, []string) string,

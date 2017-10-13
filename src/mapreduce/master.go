@@ -24,7 +24,8 @@ type Master struct {
 	// Per-task information
 	jobName string   // Name of currently executing job
 	files   []string // Input files
-	nReduce int      // Number of reduce partitions
+	// reduce的数目
+	nReduce int // Number of reduce partitions
 
 	shutdown chan struct{}
 	l        net.Listener
@@ -33,6 +34,7 @@ type Master struct {
 
 // Register is an RPC method that is called by workers after they have started
 // up to report that they are ready to receive tasks.
+// worker节点注册到master
 func (mr *Master) Register(args *RegisterArgs, _ *struct{}) error {
 	mr.Lock()
 	defer mr.Unlock()
@@ -102,6 +104,7 @@ func (mr *Master) forwardRegistrations(ch chan string) {
 
 // Distributed schedules map and reduce tasks on workers that register with the
 // master over RPC.
+// 创建一个master并且开始分发任务
 func Distributed(jobName string, files []string, nreduce int, master string) (mr *Master) {
 	mr = newMaster(master)
 	mr.startRPCServer()
@@ -129,6 +132,10 @@ func Distributed(jobName string, files []string, nreduce int, master string) (mr
 // statistics are collected, and the master is shut down.
 //
 // Note that this implementation assumes a shared file system.
+// 首先，将分配给workers map工作
+// 当mapper工作完成后，分配给worker reduce工作
+// 当所有的reduce工作完成之后，将reduce的结果合起来
+// nreduce是reduce的数目
 func (mr *Master) run(jobName string, files []string, nreduce int,
 	schedule func(phase jobPhase),
 	finish func(),
@@ -158,6 +165,7 @@ func (mr *Master) Wait() {
 
 // killWorkers cleans up all workers by sending each one a Shutdown RPC.
 // It also collects and returns the number of tasks each worker has performed.
+// 清理worker
 func (mr *Master) killWorkers() []int {
 	mr.Lock()
 	defer mr.Unlock()

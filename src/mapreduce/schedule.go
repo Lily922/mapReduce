@@ -10,7 +10,9 @@ import "fmt"
 // of registered workers; each item is the worker's RPC address,
 // suitable for passing to call(). registerChan will yield all
 // existing registered workers (if any) and new ones as they register.
-//
+// 决定怎么将任务分配给workers
+// nReduce是reduce任务的数目
+// register是注册的一些worker，存储woker的RPC地址
 func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, registerChan chan string) {
 	var ntasks int
 	var n_other int // number of inputs (for reduce) or outputs (for map)
