@@ -1,12 +1,18 @@
 package mapreduce
 
 import (
+	"encoding/json"
+	//	"fmt"
 	"hash/fnv"
+	"io/ioutil"
+	"log"
+	"os"
 )
 
 // doMap manages one map task: it reads one of the input files
 // (inFile), calls the user-defined map function (mapF) for that file's
 // contents, and partitions the output into nReduce intermediate files.
+// 管理一个map工作
 func doMap(
 	jobName string, // the name of the MapReduce job
 	mapTaskNumber int, // which map task this is
@@ -14,6 +20,34 @@ func doMap(
 	nReduce int, // the number of reduce task that will be run ("R" in the paper)
 	mapF func(file string, contents string) []KeyValue,
 ) {
+	// 创建nReduce个reduce文件，以便将自己的处理结果写进各个reduce任务
+	files := make([]*os.File, nReduce)
+	for i := 0; i < nReduce; i++ {
+		reduceFileName := reduceName(jobName, mapTaskNumber, i)
+		file, err := os.Create(reduceFileName)
+		defer file.Close()
+		if err != nil {
+			log.Fatal("Creating Reduce file:", i, "error:", err)
+			continue
+		}
+		files[i] = file
+	}
+	// 读取自己的map任务文件
+	file, err := ioutil.ReadFile(inFile)
+	if err != nil {
+		log.Fatal("mapJob:", jobName, "error:", err)
+	}
+	// 调用mapF处理文件内容,将中间结果写进各个reduce文件中
+	kv := mapF(inFile, string(file))
+	for _, v := range kv {
+		enc := json.NewEncoder(files[ihash(v.Key)%nReduce])
+		err := enc.Encode(&v)
+		if err != nil {
+			log.Fatal("encoder error:", err)
+			continue
+		}
+	}
+
 	//
 	// You will need to write this function.
 	//

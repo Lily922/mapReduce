@@ -104,6 +104,7 @@ func makeInputs(num int) []string {
 		file, err := os.Create(names[f])
 		if err != nil {
 			log.Fatal("mkInput: ", err)
+			fmt.Println("create")
 		}
 		w := bufio.NewWriter(file)
 		for i < (f+1)*(nNumber/num) {
