@@ -40,6 +40,8 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 		//若有则将该任务分配给这个worker
 		//标志当前正有一个任务在执行
 		wg.Add(1)
+		//创建一个task的args
+		//如果将创建args的过程放进go func中会出错，不知道什么原因
 		var args DoTaskArgs
 		args.JobName = jobName
 		args.File = mapFiles[i]
