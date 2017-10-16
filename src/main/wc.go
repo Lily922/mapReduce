@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"mapreduce"
 	"os"
+	"strconv"
+	"strings"
+	"unicode"
 )
 
 //
@@ -14,6 +17,18 @@ import (
 // of key/value pairs.
 //
 func mapF(filename string, contents string) []mapreduce.KeyValue {
+	var res []mapreduce.KeyValue
+	//切分文件内容，分割单词
+	r := func(c rune) bool {
+		return !unicode.IsLetter(c)
+	}
+	words := strings.FieldsFunc(contents, r)
+	for _, w := range words {
+		// value值并不重要，此处定义为“test”
+		kv := mapreduce.KeyValue{w, "test"}
+		res = append(res, kv)
+	}
+	return res
 	// TODO: you have to write this function
 }
 
@@ -23,6 +38,9 @@ func mapF(filename string, contents string) []mapreduce.KeyValue {
 // any map task.
 //
 func reduceF(key string, values []string) string {
+	//将项目总数返回，也就是每个词出现的总次数
+	fmt.Println(values)
+	return strconv.Itoa(len(values))
 	// TODO: you also have to write this function
 }
 

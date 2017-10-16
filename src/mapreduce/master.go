@@ -59,6 +59,7 @@ func newMaster(master string) (mr *Master) {
 
 // Sequential runs map and reduce tasks sequentially, waiting for each task to
 // complete before running the next.
+// 顺序的执行map和reduce函数
 func Sequential(jobName string, files []string, nreduce int,
 	mapF func(string, string) []KeyValue,
 	reduceF func(string, []string) string,
@@ -84,6 +85,7 @@ func Sequential(jobName string, files []string, nreduce int,
 // helper function that sends information about all existing
 // and newly registered workers to channel ch. schedule()
 // reads ch to learn about workers.
+// 将workers的信息写进channel，供schdule调用使用
 func (mr *Master) forwardRegistrations(ch chan string) {
 	i := 0
 	for {
@@ -145,8 +147,9 @@ func (mr *Master) run(jobName string, files []string, nreduce int,
 	mr.nReduce = nreduce
 
 	fmt.Printf("%s: Starting Map/Reduce task %s\n", mr.address, mr.jobName)
-
+	// 调度schdule函数
 	schedule(mapPhase)
+	// 调度reduce函数
 	schedule(reducePhase)
 	finish()
 	mr.merge()
