@@ -116,6 +116,7 @@ func RunWorker(MasterAddress string, me string,
 			break
 		}
 		wk.Unlock()
+		// 接收一个任务
 		conn, err := wk.l.Accept()
 		if err == nil {
 			wk.Lock()

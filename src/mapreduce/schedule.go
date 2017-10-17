@@ -3,6 +3,7 @@ package mapreduce
 import (
 	"fmt"
 	"sync"
+	//"time"
 )
 
 //
@@ -16,6 +17,7 @@ import (
 // 决定怎么将任务分配给workers
 // nReduce是reduce任务的数目
 // register是注册的一些worker，存储woker的RPC地址
+// lab1-part3，4
 func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, registerChan chan string) {
 	var ntasks int
 	var n_other int // number of inputs (for reduce) or outputs (for map)
@@ -35,34 +37,32 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 	var wg sync.WaitGroup
 	// 通过循环分配所有的任务
 	for i := 0; i < ntasks; i++ {
-		//等待空闲的worker
-		worker := <-registerChan
-		//若有则将该任务分配给这个worker
-		//标志当前正有一个任务在执行
 		wg.Add(1)
-		//创建一个task的args
-		//如果将创建args的过程放进go func中会出错，不知道什么原因
-		var args DoTaskArgs
-		args.JobName = jobName
-		args.File = mapFiles[i]
-		args.Phase = phase
-		args.TaskNumber = i
-		args.NumOtherPhase = n_other
+		var taskArgs DoTaskArgs
+		taskArgs.JobName = jobName
+		taskArgs.TaskNumber = i
+		taskArgs.File = mapFiles[i]
+		taskArgs.NumOtherPhase = n_other
+		taskArgs.Phase = phase
 		go func() {
-			//调用grpc远程调用
-			ok := call(worker, "Worker.DoTask", &args, new(struct{}))
-			if ok {
-				//标志该任务执行完毕
-				wg.Done()
-				//将worker重新放进channel中，等待下次调度任务
-				registerChan <- worker
-			} else {
-				registerChan <- worker
-				fmt.Println("error happened")
-				wg.Done()
+			// 使用for循环，某次worker执行失败或者超时，就使用下一个worker执行
+			for {
+				//每次for循环使用一个worker
+				worker := <-registerChan
+				fmt.Println("test:" + worker)
+				ok := call(worker, "Worker.DoTask", &taskArgs, nil)
+				if ok {
+					wg.Done()
+					// 将worker放回需要启用一个goroutine，不启动的话会出问题
+					// TestFailuer会出错
+					// 原因不是很清楚
+					go func() {
+						registerChan <- worker
+					}()
+					break
+				}
 			}
 		}()
-
 	}
 	// All ntasks tasks have to be scheduled on workers, and only once all of
 	// them have been completed successfully should the function return.

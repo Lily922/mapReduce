@@ -131,6 +131,7 @@ func port(suffix string) string {
 }
 
 func setup() *Master {
+	// 创建初始化的input文件，用于分配给map处理
 	files := makeInputs(nMap)
 	master := port("master")
 	mr := Distributed("test", files, nReduce, master)
@@ -198,11 +199,13 @@ func TestManyFailures(t *testing.T) {
 		default:
 			// Start 2 workers each sec. The workers fail after 10 tasks
 			w := port("worker" + strconv.Itoa(i))
+			//每个worker执行完10个任务就失效
 			go RunWorker(mr.address, w, MapFunc, ReduceFunc, 10)
 			i++
 			w = port("worker" + strconv.Itoa(i))
 			go RunWorker(mr.address, w, MapFunc, ReduceFunc, 10)
 			i++
+			//不知道这个是干嘛的
 			time.Sleep(1 * time.Second)
 		}
 	}

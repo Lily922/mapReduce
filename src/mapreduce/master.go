@@ -98,6 +98,7 @@ func (mr *Master) forwardRegistrations(ch chan string) {
 		} else {
 			// wait for Register() to add an entry to workers[]
 			// in response to an RPC from a new worker.
+			// 等待worker注册也就是调用Register函数
 			mr.newCond.Wait()
 		}
 		mr.Unlock()
