@@ -52,25 +52,25 @@ func TestReElection2A(t *testing.T) {
 	// if the leader disconnects, a new one should be elected.
 	cfg.disconnect(leader1)
 	cfg.checkOneLeader()
-
 	// if the old leader rejoins, that shouldn't
 	// disturb the old leader.
 	cfg.connect(leader1)
 	leader2 := cfg.checkOneLeader()
-
 	// if there's no quorum, no leader should
 	// be elected.
 	cfg.disconnect(leader2)
 	cfg.disconnect((leader2 + 1) % servers)
 	time.Sleep(2 * RaftElectionTimeout)
 	cfg.checkNoLeader()
-
+	//fmt.Println("test...7")
 	// if a quorum arises, it should elect a leader.
 	cfg.connect((leader2 + 1) % servers)
+	//fmt.Println("test...8")
 	cfg.checkOneLeader()
-
+	//fmt.Println("test...9")
 	// re-join of last node shouldn't prevent leader from existing.
 	cfg.connect(leader2)
+	//fmt.Println("test...10")
 	cfg.checkOneLeader()
 
 	fmt.Printf("  ... Passed\n")
@@ -82,18 +82,20 @@ func TestBasicAgree2B(t *testing.T) {
 	defer cfg.cleanup()
 
 	fmt.Printf("Test (2B): basic agreement ...\n")
-
 	iters := 3
 	for index := 1; index < iters+1; index++ {
+		fmt.Println(index, ":test2...")
 		nd, _ := cfg.nCommitted(index)
 		if nd > 0 {
 			t.Fatalf("some have committed before Start()")
 		}
-
+		fmt.Print(index, ":test3...")
 		xindex := cfg.one(index*100, servers)
+		fmt.Println(index, ":test4...")
 		if xindex != index {
 			t.Fatalf("got index %v but expected %v", xindex, index)
 		}
+		fmt.Println(index, ":test4...")
 	}
 
 	fmt.Printf("  ... Passed\n")
@@ -110,11 +112,16 @@ func TestFailAgree2B(t *testing.T) {
 
 	// follower network disconnection
 	leader := cfg.checkOneLeader()
-	cfg.disconnect((leader + 1) % servers)
-
+	time.Sleep(1 * time.Second)
+	leader = cfg.checkOneLeader()
+	time.Sleep(1 * time.Second)
+	cfg.disconnect((leader + 2) % servers)
+	fmt.Println("jkjkjkjk:", (leader+1)%servers)
+	//fmt.Println("testfailTTTTTTT")
 	// agree despite one disconnected server?
 	cfg.one(102, servers-1)
 	cfg.one(103, servers-1)
+	fmt.Println("testfailBBBBBBBB")
 	time.Sleep(RaftElectionTimeout)
 	cfg.one(104, servers-1)
 	cfg.one(105, servers-1)
