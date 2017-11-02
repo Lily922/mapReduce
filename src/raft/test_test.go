@@ -55,16 +55,20 @@ func TestReElection2A(t *testing.T) {
 	// if the old leader rejoins, that shouldn't
 	// disturb the old leader.
 	cfg.connect(leader1)
+	fmt.Println("huhuhuhuhuhuhuhuhu")
 	leader2 := cfg.checkOneLeader()
+	fmt.Println("lululululululululu")
 	// if there's no quorum, no leader should
 	// be elected.
 	cfg.disconnect(leader2)
 	cfg.disconnect((leader2 + 1) % servers)
 	time.Sleep(2 * RaftElectionTimeout)
 	cfg.checkNoLeader()
+	fmt.Println("dududududuuduududu")
 	//fmt.Println("test...7")
 	// if a quorum arises, it should elect a leader.
 	cfg.connect((leader2 + 1) % servers)
+	time.Sleep(5 * RaftElectionTimeout)
 	//fmt.Println("test...8")
 	cfg.checkOneLeader()
 	//fmt.Println("test...9")
@@ -80,7 +84,6 @@ func TestBasicAgree2B(t *testing.T) {
 	servers := 5
 	cfg := make_config(t, servers, false)
 	defer cfg.cleanup()
-
 	fmt.Printf("Test (2B): basic agreement ...\n")
 	iters := 3
 	for index := 1; index < iters+1; index++ {
@@ -115,20 +118,24 @@ func TestFailAgree2B(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	leader = cfg.checkOneLeader()
 	time.Sleep(1 * time.Second)
-	cfg.disconnect((leader + 2) % servers)
+	cfg.disconnect((leader + 1) % servers)
 	fmt.Println("jkjkjkjk:", (leader+1)%servers)
 	//fmt.Println("testfailTTTTTTT")
 	// agree despite one disconnected server?
+	fmt.Println("102102102102102102102102")
 	cfg.one(102, servers-1)
+	fmt.Println("103103103103103103103103")
 	cfg.one(103, servers-1)
-	fmt.Println("testfailBBBBBBBB")
+	fmt.Println("104104104104104104104104")
 	time.Sleep(RaftElectionTimeout)
 	cfg.one(104, servers-1)
+	fmt.Println("105105105105105105105105")
 	cfg.one(105, servers-1)
 
 	// re-connect
 	cfg.connect((leader + 1) % servers)
-
+	time.Sleep(RaftElectionTimeout)
+	time.Sleep(time.Second * 1)
 	// agree with full set of servers?
 	cfg.one(106, servers)
 	time.Sleep(RaftElectionTimeout)
@@ -137,6 +144,8 @@ func TestFailAgree2B(t *testing.T) {
 	fmt.Printf("  ... Passed\n")
 }
 
+// 测试内容，5个节点中3个非leader节点挂掉了之后的log和commit情况
+// 以及3个节点重新接入集群之后的测试
 func TestFailNoAgree2B(t *testing.T) {
 	servers := 5
 	cfg := make_config(t, servers, false)
@@ -148,6 +157,7 @@ func TestFailNoAgree2B(t *testing.T) {
 
 	// 3 of 5 followers disconnect
 	leader := cfg.checkOneLeader()
+	fmt.Println("huhuhuhuhuhuhuhuhuhuhuda:", leader)
 	cfg.disconnect((leader + 1) % servers)
 	cfg.disconnect((leader + 2) % servers)
 	cfg.disconnect((leader + 3) % servers)
@@ -158,32 +168,48 @@ func TestFailNoAgree2B(t *testing.T) {
 	}
 	if index != 2 {
 		t.Fatalf("expected index 2, got %v", index)
+	} else {
+		fmt.Println("hellohellohellohellohello")
 	}
 
 	time.Sleep(2 * RaftElectionTimeout)
 
+	//这个时候是不能提交的，因为集群中的节点全部挂掉了，master节点不能提交commit
 	n, _ := cfg.nCommitted(index)
 	if n > 0 {
 		t.Fatalf("%v committed but no majority", n)
+	} else {
+		fmt.Println("saysaysaysaysaysaysaysaysay")
 	}
 
 	// repair
 	cfg.connect((leader + 1) % servers)
 	cfg.connect((leader + 2) % servers)
 	cfg.connect((leader + 3) % servers)
+	fmt.Println("huhuhuhuhuhuhuda:", leader)
 
 	// the disconnected majority may have chosen a leader from
 	// among their own ranks, forgetting index 2.
 	// or perhaps
+	// 这个睡眠是自己假的，正常应该处理一下，但是这里暂时自己加一下，因为失联重联的节点的term数值
+	// 肯定要高过当前的leader的，所以心跳的时候leader觉的自己过时了，肯定会导致重新选主
+	// 那么这个时候肯定就是leader不稳，start函数执行的时候恰好leader已经下线了，所以一直会有
+	// reject start错误爆出
+	time.Sleep(5 * time.Second)
+	//新的leader肯定是在这三个中产生，旧的leader不能用了，同时旧leader的log entry也要重新覆盖与
+	//新的leader同步
 	leader2 := cfg.checkOneLeader()
+	fmt.Println("huhuhuhuhuda:", leader2)
 	index2, _, ok2 := cfg.rafts[leader2].Start(30)
+	fmt.Println("huhuhulililili:", leader2, index2)
 	if ok2 == false {
 		t.Fatalf("leader2 rejected Start()")
 	}
+	// 确保此时旧的leader确实是不能用的
 	if index2 < 2 || index2 > 3 {
 		t.Fatalf("unexpected index %v", index2)
 	}
-
+	fmt.Println("huhu")
 	cfg.one(1000, servers)
 
 	fmt.Printf("  ... Passed\n")
@@ -309,20 +335,30 @@ func TestRejoin2B(t *testing.T) {
 	cfg.rafts[leader1].Start(104)
 
 	// new leader commits, also for index=2
+	// 新的leader接收并分发一个log
 	cfg.one(103, 2)
 
 	// new leader network failure
 	leader2 := cfg.checkOneLeader()
 	cfg.disconnect(leader2)
-
+	fmt.Println("leaderleaderleaderrawerwgerggggggggggggggggG1:", leader2)
 	// old leader connected again
+	// 测试旧的leader重新接入集群中之后，怎么将自己的log传到server
+	// 由于自己失联期间有一个log没有被放进来，也就是上文cfg.one(103, 2)，失联期间新的leader
+	// 收到并分发的log，那么导致prelog是不对的，也就是会一直不被其他的server接收
 	cfg.connect(leader1)
-
+	fmt.Println("leaderleaderleaderrawerwgerggggggggggggggggG2:", leader1)
+	time.Sleep(20 * time.Second)
+	leader3 := cfg.checkOneLeader()
+	fmt.Println("leaderleaderleaderrawerwgerggggggggggggggggG3:", leader3)
+	time.Sleep(1 * time.Second)
 	cfg.one(104, 2)
-
+	leader4 := cfg.checkOneLeader()
+	fmt.Println("leaderleaderleaderrawerwgerggggggggggggggggG4:", leader4)
+	fmt.Println("leaderleaderleaderrawerwgerggggggggggggggggG5:")
 	// all together now
 	cfg.connect(leader2)
-
+	time.Sleep(1 * time.Second)
 	cfg.one(105, servers)
 
 	fmt.Printf("  ... Passed\n")

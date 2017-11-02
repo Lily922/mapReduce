@@ -334,8 +334,6 @@ func (cfg *config) nCommitted(index int) (int, interface{}) {
 		cfg.mu.Lock()
 		cmd1, ok := cfg.logs[i][index]
 		cfg.mu.Unlock()
-		//fmt.Println(i, cmd1)
-		fmt.Println("hihihihihihihihi:", ok, i, index)
 		if ok {
 			if count > 0 && cmd != cmd1 {
 				cfg.t.Fatalf("committed values do not match: index %v, %v, %v\n",
@@ -343,7 +341,7 @@ func (cfg *config) nCommitted(index int) (int, interface{}) {
 			}
 			count += 1
 			cmd = cmd1
-			fmt.Println("okokokokokokokoko:", count, i)
+			//fmt.Println("okokokokokokokoko:", count, i)
 		}
 	}
 	return count, cmd
@@ -391,11 +389,14 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 func (cfg *config) one(cmd int, expectedServers int) int {
 	t0 := time.Now()
 	starts := 0
+	// 这个函数不是很好，如果leader的log start之后，却没有被commit，那么又返回来
+	// 调用start，插进去一遍
 	for time.Since(t0).Seconds() < 10 {
 		// try all the servers, maybe one is the leader.
 		index := -1
 		for si := 0; si < cfg.n; si++ {
 			starts = (starts + 1) % cfg.n
+			//fmt.Println(starts)
 			var rf *Raft
 			cfg.mu.Lock()
 			if cfg.connected[starts] {
@@ -404,6 +405,7 @@ func (cfg *config) one(cmd int, expectedServers int) int {
 			cfg.mu.Unlock()
 			if rf != nil {
 				index1, _, ok := rf.Start(cmd)
+				//fmt.Println(starts, index1)
 				if ok {
 					index = index1
 					break
@@ -416,8 +418,10 @@ func (cfg *config) one(cmd int, expectedServers int) int {
 			// submitted our command; wait a while for agreement.
 			fmt.Println("huhuhuhu:", index)
 			t1 := time.Now()
-			for time.Since(t1).Seconds() < 2 {
+			// 这个值让我由2调整到了5，因为log同步太慢？？？？
+			for time.Since(t1).Seconds() < 10 {
 				nd, cmd1 := cfg.nCommitted(index)
+				fmt.Println("current commit server number && cmd:", nd, cmd1)
 				//fmt.Println(nd)
 				if nd > 0 && nd >= expectedServers {
 					// committed
