@@ -18,6 +18,8 @@ package raft
 //
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"labrpc"
 	"math/rand"
@@ -128,8 +130,10 @@ func (rf *Raft) UpateCommit(LeaderCommit int, index int, term int) {
 			}
 			rf.applyCh <- msg
 			rf.commitIndex = i
+			rf.persist()
 		}
 	}
+
 }
 
 func (rf *Raft) ChangeToLeader() {
@@ -149,6 +153,7 @@ func (rf *Raft) ChangeToCandiate() {
 	rf.state = CANDIDATE
 	// 转化为candidate时要启动选举，任期加1
 	rf.currentTerm = rf.currentTerm + 1
+	//rf.persist()
 	rf.mu.Unlock()
 	go func() {
 		args := &RequestVoteArgs{
@@ -180,11 +185,11 @@ func (rf *Raft) ChangeToCandiate() {
 							// supported++
 							rf.mu.Lock()
 							rf.voteCount++
-							fmt.Println("tatatata:", rf.me, i)
+							// fmt.Println("tatatata:", rf.me, i)
 							rf.mu.Unlock()
 							// server认为这次投票过时或者是已经在这个term投过票了
 						} else if reply.Term >= rf.currentTerm {
-							fmt.Println("hahahah:", rf.me, i)
+							//fmt.Println("hahahah:", rf.me, i)
 							// rf.mu.Lock()
 							// rf.currentTerm = reply.Term
 							// rf.currentTerm = reply.Term
@@ -256,6 +261,7 @@ func (rf *Raft) RequestHeartBeat(args *RequestHeartBeatArgs, reply *RequestHeart
 	//fmt.Println("heartbeat:opopopopopopopo")
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	defer rf.persist()
 	reply.Recived = false
 	if rf.currentTerm < args.Term {
 		// 心跳来自新任期的新的leader
@@ -265,6 +271,7 @@ func (rf *Raft) RequestHeartBeat(args *RequestHeartBeatArgs, reply *RequestHeart
 		rf.ChangeToFollower()
 		reply.Recived = true
 		reply.Term = rf.currentTerm
+		//rf.persist()
 		reply.LatestLogIndex = rf.GetLastLogIndex()
 		reply.LatestLogTerm = rf.GetLastLogTerm()
 		// 心跳来自旧的leader,什么也不做
@@ -279,6 +286,7 @@ func (rf *Raft) RequestHeartBeat(args *RequestHeartBeatArgs, reply *RequestHeart
 	} else if rf.currentTerm > args.Term && rf.commitIndex < args.LatestLogCommit {
 		reply.Recived = true
 		rf.currentTerm = args.Term
+		//rf.persist()
 		reply.Term = rf.currentTerm
 		reply.LatestLogIndex = rf.GetLastLogIndex()
 		reply.LatestLogTerm = rf.GetLastLogTerm()
@@ -333,6 +341,7 @@ func (rf *Raft) AppendEntries(args *RequestAppendEntryArgs, reply *RequestAppedn
 	// Your code here.
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+	defer rf.persist()
 
 	reply.Recived = false
 	// 来自过任期leader的log,不接受
@@ -389,6 +398,7 @@ func (rf *Raft) AppendEntries(args *RequestAppendEntryArgs, reply *RequestAppedn
 		reply.NextIndex = rf.GetLastLogIndex() + 1
 	}
 	rf.UpateCommit(args.LeaderCommit, args.CommitIndex, args.CommitTerm)
+
 	return
 }
 
@@ -405,12 +415,17 @@ func (rf *Raft) sendAppendEntries(server int, args *RequestAppendEntryArgs, repl
 func (rf *Raft) persist() {
 	// Your code here (2C).
 	// Example:
-	// w := new(bytes.Buffer)
-	// e := gob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// data := w.Bytes()
-	// rf.persister.SaveRaftState(data)
+	w := new(bytes.Buffer)
+	e := gob.NewEncoder(w)
+	e.Encode(rf.commitIndex)
+	e.Encode(rf.currentTerm)
+	e.Encode(rf.applyCh)
+	e.Encode(rf.logs)
+	e.Encode(rf.nextIndex)
+	//e.Encode(rf.state)
+	//e.Encode(rf.state)
+	data := w.Bytes()
+	rf.persister.SaveRaftState(data)
 }
 
 //
@@ -419,10 +434,20 @@ func (rf *Raft) persist() {
 func (rf *Raft) readPersist(data []byte) {
 	// Your code here (2C).
 	// Example:
-	// r := bytes.NewBuffer(data)
-	// d := gob.NewDecoder(r)
-	// d.Decode(&rf.xxx)
-	// d.Decode(&rf.yyy)
+	r := bytes.NewBuffer(data)
+	d := gob.NewDecoder(r)
+	d.Decode(&rf.commitIndex)
+	fmt.Println("commitcommit:", rf.commitIndex)
+	d.Decode(&rf.currentTerm)
+	fmt.Println("termterm:", rf.currentTerm)
+	d.Decode(&rf.applyCh)
+	fmt.Println("applyapply:", rf.applyCh)
+	d.Decode(&rf.logs)
+	fmt.Println("logslogs:", rf.logs)
+	d.Decode(&rf.nextIndex)
+
+	//d.Decode(&rf.state)
+	//d.Decode(&rf.state)
 	if data == nil || len(data) < 1 { // bootstrap without any state?
 		return
 	}
@@ -474,7 +499,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// rf.mu.Lock()
 	// defer rf.mu.Unlock()
 	reply.VoteGranted = false
-	fmt.Println("stststststst:", rf.me, rf.state)
+	// fmt.Println("stststststst:", rf.me, rf.state)
 	/*
 		if rf.commitIndex <= args.LatestCommitIndex {
 	*/
@@ -493,7 +518,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		if rf.commitIndex <= args.LatestCommitIndex {
 			// 同意该server成为leader
 			rf.mu.Lock()
-			fmt.Println("popopopopo1")
+			//fmt.Println("popopopopo1")
 			rf.voteFor = args.CandidateId
 			rf.leaderId = args.CandidateId
 			rf.currentTerm = args.Term
@@ -530,13 +555,15 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		// 不同意这次选举
 	} else {
 		// 不同意改次选举，该term已经过时或者在当前term已经投票给其他的 server
-		fmt.Println("popopopopo4")
+		// fmt.Println("popopopopo4")
 		reply.VoteGranted = false
 		rf.mu.Lock()
 		reply.Term = rf.currentTerm
 		rf.mu.Unlock()
 	}
-
+	rf.mu.Lock()
+	rf.persist()
+	rf.mu.Unlock()
 }
 
 //
@@ -600,7 +627,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			Index:   index,
 			Command: command,
 		})
-		//rf.persist()
+		rf.persist()
 	}
 	return index, term, isLeader
 }
@@ -655,7 +682,7 @@ func (rf *Raft) heartbeatSync() {
 			rf.mu.Unlock()
 			// 选举超时发起选举
 			if rf.heartbeatElapsed > rf.heartTimeout {
-				fmt.Println("ioioioioio:", rf.me, rf.state)
+				// fmt.Println("ioioioioio:", rf.me, rf.state)
 				rf.ChangeToCandiate()
 			}
 		}
@@ -855,7 +882,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.nextIndex = make([]int, len(rf.peers))
 	// 默认还没有进入第一轮任期
 	rf.currentTerm = -1
-	rf.currentTerm = -1
 	// 默认没有leader
 	rf.leaderId = -1
 	// voteFor设置为-1
@@ -866,10 +892,14 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// Your initialization code here (2A, 2B, 2C).
 	// initialize from state persisted before a crash
 	// 更改状态为follower
+	//rf.ChangeToFollower()
+	fmt.Println("edededede", persister.ReadRaftState())
+	//rf.readPersist(persister.ReadRaftState())
 	rf.ChangeToFollower()
-	rf.readPersist(persister.ReadRaftState())
+	fmt.Println("hihihi", rf.me, rf.logs)
 	// for循环查看超时以及发送心跳
 	go rf.logEntrySync()
+
 	go rf.heartbeatSync()
 
 	return rf
