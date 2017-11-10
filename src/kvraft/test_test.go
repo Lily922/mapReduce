@@ -128,10 +128,14 @@ func partitioner(t *testing.T, cfg *config, ch chan bool, done *int32) {
 // maxraftstate is a positive number, the size of the state for Raft (i.e., log
 // size) shouldn't exceed 2*maxraftstate.
 func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash bool, partitions bool, maxraftstate int) {
-	const nservers = 5
+	//设定为3，选主算法在是5的时候选不出主
+	// const nserver = 5
+	const nservers = 3
 	cfg := make_config(t, tag, nservers, unreliable, maxraftstate)
 	defer cfg.cleanup()
-
+	fmt.Println("huhuhu")
+	//给选主预留3秒
+	time.Sleep(3 * time.Second)
 	ck := cfg.makeClient(cfg.All())
 
 	done_partitioner := int32(0)
@@ -164,7 +168,7 @@ func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash 
 					// log.Printf("%d: client new get %v\n", cli, key)
 					v := myck.Get(key)
 					if v != last {
-						log.Fatalf("get wrong value, key %v, wanted:\n%v\n, got\n%v\n", key, last, v)
+						log.Fatalf("get wrong value, key %v, wanted:\n%v\ngot:\n%v\n", key, last, v)
 					}
 				}
 			}

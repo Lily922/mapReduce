@@ -4,7 +4,6 @@ import "labrpc"
 import "crypto/rand"
 import "math/big"
 
-
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// You will have to modify this struct.
@@ -39,7 +38,17 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 func (ck *Clerk) Get(key string) string {
 
 	// You will have to modify this function.
-	return ""
+	var args GetArgs
+	args.Key = key
+	//向所有的server提交请求，只有是leader的server才会对请求进行处理
+	for _, v := range ck.servers {
+		var reply GetReply
+		ok := v.Call("RaftKV.Get", &args, &reply)
+		if ok && !reply.WrongLeader {
+			return reply.Value
+		}
+	}
+	return "error"
 }
 
 //
@@ -54,6 +63,19 @@ func (ck *Clerk) Get(key string) string {
 //
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
+	var args PutAppendArgs
+	args.Key = key
+	args.Value = value
+	args.Op = op
+	//向所有的server发送put或者append请求，只有是leader的server才会对请求进行处理
+	for _, v := range ck.servers {
+		var reply PutAppendReply
+		ok := v.Call("RaftKV.PutAppend", &args, &reply)
+		if ok && !reply.WrongLeader {
+			return
+		}
+	}
+
 }
 
 func (ck *Clerk) Put(key string, value string) {
