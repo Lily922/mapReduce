@@ -139,6 +139,7 @@ func (rf *Raft) UpateCommit(LeaderCommit int, index int, term int) {
 func (rf *Raft) ChangeToLeader() {
 	rf.leaderId = rf.me
 	rf.state = LEADER
+	//rf.heartbeatSync()
 }
 
 func (rf *Raft) ChangeToFollower() {
@@ -265,7 +266,7 @@ func (rf *Raft) RequestHeartBeat(args *RequestHeartBeatArgs, reply *RequestHeart
 	reply.Recived = false
 	if rf.currentTerm < args.Term {
 		// 心跳来自新任期的新的leader
-		// fmt.Println(rf.me, ":heartbeat:opopopopopopopo")
+		fmt.Println(rf.me, ":heartbeat:opopopopopopopo")
 		rf.currentTerm = args.Term
 		rf.leaderId = args.LeaderId
 		rf.ChangeToFollower()
@@ -276,7 +277,7 @@ func (rf *Raft) RequestHeartBeat(args *RequestHeartBeatArgs, reply *RequestHeart
 		reply.LatestLogTerm = rf.GetLastLogTerm()
 		// 心跳来自旧的leader,什么也不做
 	} else if rf.currentTerm > args.Term && rf.commitIndex >= args.LatestLogCommit {
-		// fmt.Println(rf.me, ":heartbeat:lplplplplplpplp:", rf.currentTerm, args.Term)
+		fmt.Println(rf.me, ":heartbeat:lplplplplplpplp:", rf.currentTerm, args.Term)
 		reply.Term = rf.currentTerm
 		reply.LatestLogIndex = rf.GetLastLogIndex()
 		reply.LatestLogTerm = rf.GetLastLogTerm()
@@ -527,7 +528,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			rf.ChangeToFollower()
 			rf.mu.Unlock()
 		} else {
-			fmt.Println("popopopopo2")
+			fmt.Println("popopopopo2", args.CandidateId, rf.me)
 			// 发起投票的有较高的term，但是commit的log Index比较低，所以认为
 			// 发起投票的term是在失联的时候升上去的，拒绝，并且将自己的term返回回去
 			reply.VoteGranted = false
@@ -656,6 +657,7 @@ func (rf *Raft) heartbeatSync() {
 						ok := rf.sendRequestHeartBeat(i, args, reply) // 当前任期已经过时,更新自己的任期
 						if ok && reply.Term > rf.currentTerm && reply.LatestLogIndex >= rf.GetLastLogIndex() && reply.LatestLogTerm >= rf.GetLastLogTerm() {
 							rf.mu.Lock()
+							fmt.Println("sdsdsdsdsdsdsdsd")
 							rf.ChangeToFollower()
 							rf.currentTerm = reply.Term
 							rf.mu.Unlock()
@@ -665,14 +667,18 @@ func (rf *Raft) heartbeatSync() {
 					}
 				}
 				// 自己失联了，要退回到follower
-				if unconnect == len(rf.peers)-1 {
-					// 不然，作为leader重新连接后的term过大，也会导致
-					// 不用选举重新成为leader，但是这是他的commit已经和集群 不符了
-					//fmt.Println("909090909090")
-					rf.mu.Lock()
-					rf.ChangeToFollower()
-					rf.mu.Unlock()
-				}
+				//fmt.Println("gygygyg", rf.peers)
+				/*
+					if unconnect == len(rf.peers)-1 {
+						fmt.Println("gygygygyg:", unconnect)
+						// 不然，作为leader重新连接后的term过大，也会导致
+						// 不用选举重新成为leader，但是这是他的commit已经和集群 不符了
+						fmt.Println("909090909090")
+						rf.mu.Lock()
+						rf.ChangeToFollower()
+						rf.mu.Unlock()
+					}
+				*/
 			}()
 			// 心跳超时记录
 		} else if rf.state == FOLLOWER {

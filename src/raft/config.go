@@ -323,6 +323,7 @@ func (cfg *config) checkNoLeader() {
 }
 
 // how many servers think a log entry is committed?
+// 查看有几个server已经将指定的index给commit了
 func (cfg *config) nCommitted(index int) (int, interface{}) {
 	count := 0
 	cmd := -1

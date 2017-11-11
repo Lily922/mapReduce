@@ -162,13 +162,15 @@ func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash 
 					nv := "x " + strconv.Itoa(cli) + " " + strconv.Itoa(j) + " y"
 					// log.Printf("%d: client new append %v\n", cli, nv)
 					myck.Append(key, nv)
+					fmt.Println("dededededededed", last)
 					last = NextValue(last, nv)
+					fmt.Println("dededededededed", last)
 					j++
 				} else {
 					// log.Printf("%d: client new get %v\n", cli, key)
 					v := myck.Get(key)
 					if v != last {
-						log.Fatalf("get wrong value, key %v, wanted:\n%v\ngot:\n%v\n", key, last, v)
+						log.Fatalf("get wrong value, key %v,\nwanted:\n%v,\ngot:\n%v,\n", key, last, v)
 					}
 				}
 			}

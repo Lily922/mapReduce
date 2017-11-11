@@ -1,6 +1,9 @@
 package raftkv
 
-import "labrpc"
+import (
+	"fmt"
+	"labrpc"
+)
 import "crypto/rand"
 import "math/big"
 
@@ -41,14 +44,17 @@ func (ck *Clerk) Get(key string) string {
 	var args GetArgs
 	args.Key = key
 	//向所有的server提交请求，只有是leader的server才会对请求进行处理
-	for _, v := range ck.servers {
-		var reply GetReply
-		ok := v.Call("RaftKV.Get", &args, &reply)
-		if ok && !reply.WrongLeader {
-			return reply.Value
+	for {
+		for _, v := range ck.servers {
+			var reply GetReply
+			ok := v.Call("RaftKV.Get", &args, &reply)
+			if ok && !reply.WrongLeader {
+				return reply.Value
+			}
 		}
 	}
-	return "error"
+	//return ""
+	//return "error"
 }
 
 //
@@ -69,13 +75,19 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	args.Op = op
 	//向所有的server发送put或者append请求，只有是leader的server才会对请求进行处理
 	for _, v := range ck.servers {
+		i := 0
 		var reply PutAppendReply
-		ok := v.Call("RaftKV.PutAppend", &args, &reply)
-		if ok && !reply.WrongLeader {
-			return
+		for {
+			i++
+			fmt.Println("tuuuuuuututuuuuu:", i, key, value, op)
+			ok := v.Call("RaftKV.PutAppend", &args, &reply)
+			if ok && !reply.WrongLeader {
+				return
+			} else if ok {
+				break
+			}
 		}
 	}
-
 }
 
 func (ck *Clerk) Put(key string, value string) {
